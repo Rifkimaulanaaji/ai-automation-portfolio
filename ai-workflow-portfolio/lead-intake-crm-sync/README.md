@@ -59,4 +59,4 @@ Pada konfigurasi pengujian tersebut, 780 lead baru menghasilkan 780 record CRM. 
 - State yang terlalu lama berada di `processing` perlu dipulihkan tanpa mengambil alih pekerjaan yang masih berjalan. Lease atau token kepemilikan claim dapat dipertimbangkan.
 
 ## Dokumentasi lengkap
-Lihat [dokumentasi proyek](./docs/lead-intake-crm-synchronization-system.pdf).
+Lihat [dokumentasi proyek](ai-workflow-portfolio/lead-intake-crm-sync/docs/lead-intake-crm-synchronization-system.pdf).
