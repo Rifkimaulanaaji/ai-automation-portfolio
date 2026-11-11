@@ -44,4 +44,4 @@ Hal yang masih perlu diperiksa sebelum penggunaan nyata:
 - Autentikasi atau validasi sumber request perlu dipertimbangkan.
 
 ## Dokumentasi lengkap
-Lihat [dokumentasi proyek](./docs/rag-customer-service-bot.pdf).
+Lihat [dokumentasi proyek](https://github.com/Rifkimaulanaaji/ai-automation-portfolio/blob/main/ai-workflow-portfolio/rag-customer-service-bot/docs/rag-customer-service-bot.pdf).
