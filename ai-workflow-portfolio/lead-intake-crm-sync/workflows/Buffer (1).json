@@ -1,0 +1,96 @@
+{
+  "name": "Buffer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "3d4d402b-67c2-4b25-8f5e-d6858fedd801",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "721f6158-ad5d-471e-b9a5-c61e6935c4ce",
+      "name": "Webhook",
+      "webhookId": "3d4d402b-67c2-4b25-8f5e-d6858fedd801"
+    },
+    {
+      "parameters": {
+        "jsCode": "const normalizePhone = (raw) => {\n  let d = String(raw ?? \"\").replace(/\\D/g, \"\"); // buang spasi, +, -, (), dll\n  if (d.startsWith(\"620\")) d = \"62\" + d.slice(3); // +62 0812... -> 62812...\n  else if (d.startsWith(\"0\")) d = \"62\" + d.slice(1); // 0812... -> 62812...\n  else if (d.startsWith(\"8\")) d = \"62\" + d;          // 812...  -> 62812...\n  return /^628\\d{8,11}$/.test(d) ? d : null;         // nomor seluler Indonesia\n};\n\nconst out = [];\nfor (const item of $input.all()) {\n  const data = item.json.body ?? item.json; // Webhook node menaruh payload di \"body\"\n  const phone = normalizePhone(data.phone);\n  if (!phone) continue; // format tidak valid -> di-drop\n\n  out.push({\n    json: {\n      ...data,\n      phone,\n      lead_id: phone, // lead_id dibentuk dari nomor ternormalisasi\n    },\n  });\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "a51efe50-4357-4900-9569-10fca4f3a2b4",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "insert into public.lead_buffer (lead_id, name, phone, context, status, attempt_count)\nvalues ($1, $2, $3, $4, 'pending', 0)\non conflict (lead_id) do update\n  set name = excluded.name, context = excluded.context;",
+        "options": {
+          "queryReplacement": "={{ [$json.lead_id, $json.name, $json.phone, $json.context] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        0
+      ],
+      "id": "5f103b85-5a5d-43bb-b643-85628d0aa768",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "06d76a1b-8a22-40d1-a187-f19a5e9b3fee",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d7ab9faefe31aebb14c4ee1d409dd73742fcc70d80472074b1eebb0c815d1d18"
+  },
+  "nodeGroups": [],
+  "id": "77TWNzOEIpjORFY6",
+  "tags": []
+}

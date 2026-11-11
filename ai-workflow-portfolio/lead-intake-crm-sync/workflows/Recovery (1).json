@@ -1,0 +1,243 @@
+{
+  "name": "Recovery",
+  "nodes": [
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "1ea8a9e0-ba6a-4ee5-824c-fff298be78a8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "EXIST"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2f402b8d-350a-4cb8-88b8-c1f0ced2ca0d",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 404,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "not EXIST"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        -64
+      ],
+      "id": "add5ca13-4b26-40ff-adf2-a8111e8d34f5",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select lead_id, status\nfrom public.lead_buffer\nwhere status = 'unknown'\n   or (status = 'processing' and claimed_at < now() - interval '1 hour')\norder by created_at\nlimit 20;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        -64
+      ],
+      "id": "1a77d82b-d7b3-4312-b3f2-bff6a8c41540",
+      "name": "List unknown",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=http://localhost:4000/leads/{{ $json.lead_id }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        -64
+      ],
+      "id": "69b0e320-8bf2-49e6-804d-9f09b750d30b",
+      "name": "CRM Check",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.lead_buffer\nset status = 'success',\n    notes = concat_ws(E'\\n', notes,\n      to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n      || ' | recovery | CRM sudah punya record (lookup 200) | dari status ' || status)\nwhere lead_id = $1 and status in ('unknown', 'processing')\nreturning lead_id, status, attempt_count;",
+        "options": {
+          "queryReplacement": "={{ [ $('List unknown').item.json.lead_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        896,
+        -160
+      ],
+      "id": "59b85adb-8898-4e7b-9203-c5b48ddbc5a8",
+      "name": "Update Succes",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with updated as (\n  update public.lead_buffer\n  set status = case when attempt_count < 3 then 'pending' else 'failure_data' end,\n      notes = concat_ws(E'\\n', notes,\n        to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n        || ' | recovery | CRM belum punya record (lookup 404) | dari status ' || status\n        || case when attempt_count < 3 then ' | kembali ke pending'\n                else ' | jatah habis, ke failure_data' end)\n  where lead_id = $1 and status in ('unknown', 'processing')\n  returning lead_id, name, phone, context, attempt_count, status, notes\n)\ninsert into public.faillog (lead_id, name, phone, context, attempt_count, http_status, error_detail, notes)\nselect lead_id, name, phone, context, attempt_count, $2::int, $3::text, notes\nfrom updated\nwhere status = 'failure_data'\nreturning id, lead_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('List unknown').item.json.lead_id, $json.statusCode, 'unknown outcome: lookup CRM 404, jatah percobaan habis' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        896,
+        32
+      ],
+      "id": "ea3952b4-d617-47b5-9d1e-b8c0e87cbc7f",
+      "name": "Update Pending",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        -64
+      ],
+      "id": "171e5059-3ed2-45cd-9d52-d2a0329e8145",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Update Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List unknown": {
+      "main": [
+        [
+          {
+            "node": "CRM Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Check": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "List unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "155c4fde-ee90-4a28-a08d-f8e4584b8376",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d7ab9faefe31aebb14c4ee1d409dd73742fcc70d80472074b1eebb0c815d1d18"
+  },
+  "nodeGroups": [],
+  "id": "Mvn2qtT3yjUSMFj7",
+  "tags": []
+}

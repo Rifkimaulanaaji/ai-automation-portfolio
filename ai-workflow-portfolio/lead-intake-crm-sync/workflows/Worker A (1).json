@@ -1,0 +1,572 @@
+{
+  "name": "Worker A",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        112,
+        368
+      ],
+      "id": "f672bc31-c7a0-4c1a-9de7-a00364a9df2c",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 200,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    },
+                    "id": "b06859ce-e25a-4a7c-847c-2006c91cad08"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SUCCES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d059297b-23af-4e99-a5e9-5638a51f48bd",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 400,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "FORMAT_ERROR"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8d73deed-fa5c-459c-abca-023aaa9dfbdf",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 500,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "RETRIABLE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7bce73a5-50ce-401c-b10b-c568f1fd7b7a",
+                    "leftValue": "={{ $json.statusCode }}",
+                    "rightValue": 429,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Limit"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        896,
+        480
+      ],
+      "id": "d98048dc-bf55-4e69-93f4-1a10312f321f",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with updated as (\n  update public.lead_buffer\n  set status = 'failure_data',\n      notes = concat_ws(E'\\n', notes,\n        to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n        || ' | CRM 400 | data ditolak: ' || left($3::text, 200))\n  where lead_id = $1 and status = 'processing'\n  returning lead_id, name, phone, context, attempt_count, notes\n)\ninsert into public.faillog (lead_id, name, phone, context, attempt_count, http_status, error_detail, notes)\nselect lead_id, name, phone, context, attempt_count, $2::int, $3::text, notes\nfrom updated\nreturning id, lead_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Claim').item.json.lead_id, $json.statusCode, JSON.stringify($json.body) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        416
+      ],
+      "id": "f978db55-5018-400b-b0c3-0a6aa9d48244",
+      "name": "Backlog",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.lead_buffer\nset status = 'success'\nwhere lead_id = $1\n  and status = 'processing'\nreturning lead_id, status, attempt_count;",
+        "options": {
+          "queryReplacement": "={{ [ $('Claim').item.json.lead_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        224
+      ],
+      "id": "dcfd4b1e-7632-4950-aa33-7110c39e8e0e",
+      "name": "Succes",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.lead_buffer\nset status = 'unknown',\n    notes = concat_ws(E'\\n', notes,\n      to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n      || ' | timeout/tanpa respons dari CRM | percobaan ' || attempt_count\n      || ' | menunggu recovery')\nwhere lead_id = $1 and status = 'processing'\nreturning lead_id, status, attempt_count;",
+        "options": {
+          "queryReplacement": "={{ [ $('Claim').item.json.lead_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        896,
+        816
+      ],
+      "id": "abb2591b-2d41-4df0-8f66-3c5ca7eea6e3",
+      "name": "Unknown",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with updated as (\n  update public.lead_buffer\n  set status = case when attempt_count < 3 then 'pending' else 'failure_data' end,\n      notes = concat_ws(E'\\n', notes,\n        to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n        || ' | CRM 500 | percobaan ' || attempt_count || '/3'\n        || case when attempt_count < 3 then ' | kembali ke pending'\n                else ' | jatah habis, ke failure_data' end)\n  where lead_id = $1 and status = 'processing'\n  returning lead_id, name, phone, context, attempt_count, status, notes\n)\ninsert into public.faillog (lead_id, name, phone, context, attempt_count, http_status, error_detail, notes)\nselect lead_id, name, phone, context, attempt_count, $2::int, $3::text, notes\nfrom updated\nwhere status = 'failure_data'\nreturning id, lead_id;",
+        "options": {
+          "queryReplacement": "={{ [ $('Claim').item.json.lead_id, $json.statusCode, JSON.stringify($json.body) ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1120,
+        752
+      ],
+      "id": "a0ba7094-b71c-47a4-8f2d-97bab9df3663",
+      "name": "Retry",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:4000/leads",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "lead_id",
+              "value": "={{ $json.lead_id }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "name": "context",
+              "value": "={{ $json.context }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        816
+      ],
+      "id": "16aef7a8-38a2-46b2-a2b2-49f7e83de150",
+      "name": "CRM",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.lead_buffer\nset status = 'processing',\n    attempt_count = attempt_count + 1,\n    claimed_at = now()\nwhere lead_id in (\n  select lead_id\n  from public.lead_buffer\n  where status = 'pending'\n  order by created_at\n  limit $1\n  for update skip locked\n)\nreturning lead_id, name, phone, context, status, attempt_count;",
+        "options": {
+          "queryReplacement": "={{[45]}}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        816
+      ],
+      "id": "a576608c-063b-4f6a-88fe-44c69dd1e212",
+      "name": "Claim",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.retry_after }}"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        912
+      ],
+      "id": "db075ad1-7e75-4d95-990b-d05afed67e75",
+      "name": "Wait",
+      "webhookId": "2c832407-a1ea-431a-bbcb-1b3aa363ff6e"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const MAX_ROUNDS = 3;                  // jumlah pengiriman ulang maksimum\nconst lead = $('Claim').item.json;     // data lead asli dari node klaim\nconst raw = Number($json.headers['retry-after']);\nconst retryAfter = (Number.isFinite(raw) && raw > 0 ? raw : 5) + Math.random() * 2; // jitter 0-2 detik\n\nreturn {\n  json: {\n    lead_id: lead.lead_id,\n    name: lead.name,\n    phone: lead.phone,\n    context: lead.context,\n    retry_after: Math.ceil(retryAfter),\n    give_up: $runIndex >= MAX_ROUNDS,\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        608
+      ],
+      "id": "8a59c14f-48de-429d-8fda-e17af108d5a7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "fe71babc-324e-474d-9fa5-db53fe917435",
+              "leftValue": "={{ $json.give_up }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        608
+      ],
+      "id": "00344b4e-f0ca-48a0-9c5d-86429ddb0ea2",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        816
+      ],
+      "id": "432d34b8-fb34-4d1b-8ea5-d09f599fb4ee",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "update public.lead_buffer\nset status = 'pending',\n    notes = concat_ws(E'\\n', notes,\n      to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM-DD HH24:MI:SS')\n      || ' | CRM 429 | give_up setelah ronde retry | kembali ke pending')\nwhere lead_id = $1 and status = 'processing'\nreturning lead_id, status, attempt_count;",
+        "options": {
+          "queryReplacement": "={{ [ $json.lead_id ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1568,
+        560
+      ],
+      "id": "e0fe4b3b-c620-4c5a-b389-99b3dca218a8",
+      "name": "Back to pending",
+      "credentials": {
+        "postgres": {
+          "id": "3Kpv3VOwt2ETdG2r",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "13cb6573-9c36-4bb5-8132-ff61fb9025b0",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": false,
+              "operator": {
+                "type": "object",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        816
+      ],
+      "id": "377ae96e-8443-42c7-99fa-b7afbf254220",
+      "name": "If1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Succes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Backlog",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Back to pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        []
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "92545048-a330-428c-beb9-a68ba0ca2cca",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d7ab9faefe31aebb14c4ee1d409dd73742fcc70d80472074b1eebb0c815d1d18"
+  },
+  "nodeGroups": [],
+  "id": "ygZJfixje8XoBSLe",
+  "tags": []
+}
