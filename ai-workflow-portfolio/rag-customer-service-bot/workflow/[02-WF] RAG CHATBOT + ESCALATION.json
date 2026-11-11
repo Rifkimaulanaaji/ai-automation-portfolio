@@ -1,0 +1,859 @@
+{
+  "name": "RAG-CS BOT",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "instagram_dm",
+        "options": {}
+      },
+      "id": "db1294f8-4141-4a14-8970-fffdd81adcbf",
+      "name": "Receive Message (WAHA Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1392,
+        256
+      ],
+      "webhookId": "a611ef92-772f-40ba-9da5-1cd4e66205b8"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "chat-text",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.body?.payload?.body ?? \"\" }}"
+            },
+            {
+              "id": "9a3d5e93-931b-401d-b7fb-1dd62b8c3d2f",
+              "name": "body.payload.from",
+              "type": "string",
+              "value": "={{ $json.body?.payload?.from ?? \"\" }}"
+            },
+            {
+              "id": "3f4c740f-bd10-4607-a903-8e77a26452f5",
+              "name": "body.payload._data.key.remoteJidAlt",
+              "type": "string",
+              "value": "={{ $json.body?.payload?._data?.key?.remoteJidAlt?.split(\"@\")[0] ?? \"\" }}"
+            },
+            {
+              "id": "fromme-0001",
+              "name": "body.payload.fromMe",
+              "type": "boolean",
+              "value": "={{ $json.body?.payload?.fromMe === true }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "af7e125f-93e0-4a70-9987-d4897b31c19b",
+      "name": "Normalize Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1168,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "sys-prompt",
+              "name": "system_prompt",
+              "type": "string",
+              "value": "You are an Instagram DM assistant for Lumina Attire. Always address the customer as \"Kak\".\n\n## TONE & HUMANIZATION — CRITICAL\n- Do NOT open every message with a greeting like \"Halo Kak!\" or \"Hai Kak!\" — only greet at the START of a NEW conversation (no prior chat history). If chatHistory already has messages, jump straight into answering, like a human continuing a chat.\n- Vary your sentence openers. Don't reuse the same phrase pattern across replies (e.g. not always \"Halo Kak! 👋 ...\"). Sometimes start directly with the answer, sometimes with a short reaction (\"Oh iya kak\", \"Untuk itu\", \"Siap\", \"Kalau ke situ\").\n- Use AT MOST 1 emoji per reply, and not every single reply needs one — skip it sometimes, like a real admin would.\n- Keep replies short and conversational (1-2 sentences typically). Don't cram every possible detail into one message — answer what was asked, and let the customer ask follow-ups naturally instead of front-loading everything.\n- Avoid overly polished/complete sentences every time. Natural chat admins sometimes write slightly casually (e.g. \"kurang lebih 3-6 hari kerja ya kak\" instead of a fully formal sentence).\n- Match the customer's language (Indonesian or English) and their level of formality.\n\n## TOOL USAGE — STRICT RULES\n\n**search_sop:** Call this FIRST for ANY question about: ongkir/shipping, delivery time, sizing/ukuran, bahan/material, return/retur, payment, promo terms, or ANY store policy. Do NOT answer from your own knowledge — our rules are specific (e.g. flat rate per region, not per courier tier). If the customer's question is ambiguous but COULD relate to store policy, still call search_sop.\n\n**Stock / availability:** You do NOT have a stock-checking tool. For any question about product availability or stock, use the ESCALATE format below so the admin can check manually. Never guess stock.\n\n## ANTI-ASSUMPTION RULES\n- For sizing recommendations: you NEED both BB (berat badan) AND TB (tinggi badan). If either is missing, ask for the missing variable BEFORE recommending. Never assume or estimate.\n- Never improvise prices, promo terms, or policies not found in search_sop results.\n- If search_sop returns no relevant results for a store-policy question (e.g. asking about a promo/policy that doesn't exist in our data), do NOT explain this yourself — treat it as an escalation case, see ESCALATION section below.\n- NEVER state bank account numbers, transfer destinations, or specific payment details in chat. For payment info, always say: 'Untuk info pembayaran, Kakak bisa hubungi admin kami langsung ya.'\n- Only mention WhatsApp number or official store channels (Shopee/Tokopedia) when directing customers.\n\n## ESCALATION\nWhen any of the criteria below is met, respond ONLY in this EXACT format — nothing before or after, no greeting, no explanation in your own words:\n\nESCALATE||<alasan singkat untuk admin, 1 kalimat, jelaskan apa yang customer butuhkan/tanyakan>||<pesan balasan ke customer: natural, empatik sesuai konteks masalahnya, dan jelas menyampaikan bahwa pesannya sedang diteruskan/diarahkan ke tim/admin kami>\n\nExample:\nESCALATE||Customer komplain jahitan kemeja lepas, minta penanganan||Waduh, maaf banget ya Kak atas ketidaknyamanannya. Aku langsung teruskan ke tim kami biar bisa dibantu cepat, ditunggu ya kak\n\nEscalate when:\n- Customer mentions a specific order number or transaction proof\n- Customer states their received item is damaged, wrong, or defective — even if they haven't explicitly asked for action yet\n- Customer explicitly requests: return, exchange, refund, cancel order, or complaint\n- Customer is angry, frustrated, or uses hostile language\n- Customer asks about product stock/availability (no stock tool is available)\n- You cannot answer confidently after calling search_sop for a store-policy-related question\n- Customer explicitly asks to speak to a human/admin\n\nNEVER write your own explanation about escalating or connecting to admin outside this format — always use the exact ESCALATE||...||... structure.\n\n## TRANSACTIONS\nNever process orders or make pricing/policy decisions. Always direct to official channels (Shopee/Tokopedia/WA admin: 0812-3456-7890) for purchases."
+            },
+            {
+              "id": "11da0ba9-6b9b-4af3-ae1c-3d2d336929e2",
+              "name": "chatId",
+              "type": "string",
+              "value": "={{ $json.body.payload.from }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2c395576-dcb1-41f5-8d16-2b90c82d0966",
+      "name": "Set System Prompt & Chat ID",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -720,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Normalize Payload').item.json.text }}",
+        "options": {
+          "systemMessage": "={{ $('Set System Prompt & Chat ID').item.json.system_prompt }}"
+        }
+      },
+      "id": "1bb2f8ac-6092-4bd0-8ccb-53dbaf0529b9",
+      "name": "Customer Service Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -432,
+        256
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "dae816ca-27cc-4ff8-a02b-ea5c16eab8ee",
+              "leftValue": "={{ $json.output }}",
+              "operator": {
+                "operation": "startsWith",
+                "type": "string"
+              },
+              "rightValue": "ESCALATE"
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          }
+        },
+        "options": {}
+      },
+      "id": "b8039130-0f6a-48a5-8c7f-33b4adfaf3db",
+      "name": "Is Escalation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-reply",
+              "name": "text",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "0c790607-4779-4d87-96be-e4d3112773d4",
+              "name": "chatId",
+              "value": "={{ $('Normalize Payload').item.json.body.payload.from }}",
+              "type": "string"
+            },
+            {
+              "id": "8a4b7c7b-f73a-496c-9070-0103ff69e22a",
+              "name": "session",
+              "value": "RAG_chatbot",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d20ca83d-5343-40bb-8401-a84d7fbf39b5",
+      "name": "Prepare Normal Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        256
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "2578b717-3b99-49c4-ab31-cda728e116cb",
+      "name": "Gemini Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -152,
+        696
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "uxogXh7aWTVlONA3",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool whenever the customer asks ANYTHING that could be answered by store knowledge — including but not limited to: shipping cost (ongkir), delivery time, courier options, size recommendations, how to measure body size, return/exchange policy, payment methods, promo conditions, product materials, care instructions, or any store procedure. Also use this tool for indirect/implicit questions like 'kira-kira muat gak?', 'aman gak kalau dicuci?', 'gimana kalau salah ukuran?', 'lama gak nyampenya?'. When in doubt, always call this tool first before answering.",
+        "tableName": {
+          "__rl": true,
+          "cachedResultName": "documents",
+          "mode": "list",
+          "value": "documents"
+        },
+        "topK": 6,
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "id": "f504a94d-09ce-44b3-b8fb-d8ecdfcf4a7f",
+      "name": "search_sop",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -232,
+        488
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.1,
+      "position": [
+        -488,
+        488
+      ],
+      "id": "3ab321e8-3f98-4436-ac1c-b05b483de546",
+      "name": "Gemini 2.5 Flash",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "uxogXh7aWTVlONA3",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.chatId}}",
+        "contextWindowLength": 16
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -360,
+        488
+      ],
+      "id": "7849816a-5c67-4740-8537-41250c9ecfc8",
+      "name": "Chat Memory (per customer)"
+    },
+    {
+      "parameters": {
+        "chatId": "1964825963",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "id": "107a4f1a-1df8-44bf-9c63-84389bacefa8",
+      "name": "Send Admin Alert (Telegram)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        256
+      ],
+      "webhookId": "9edf828e-0de5-48d4-8d45-bd182c150470"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://wahanoweb-1b14d7.app3.flaz.my.id/api/sendText",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chatId\": $json.chatId, \"text\": $json.text, \"session\": $json.session } }}",
+        "options": {}
+      },
+      "id": "887b5343-25db-4ef5-abba-94697cececcc",
+      "name": "Send Normal Reply (WAHA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        576,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-reply",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.output.split('||').slice(2).join('||').trim() || 'Baik Kak, pesanmu sudah kami teruskan ke tim kami, mohon ditunggu ya 🙏' }}"
+            },
+            {
+              "id": "0c790607-4779-4d87-96be-e4d3112773d4",
+              "name": "chatId",
+              "type": "string",
+              "value": "={{ $('Normalize Payload').item.json.body.payload.from }}"
+            },
+            {
+              "id": "8a4b7c7b-f73a-496c-9070-0103ff69e22a",
+              "name": "session",
+              "type": "string",
+              "value": "RAG_chatbot"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ee43ecfb-9a37-4f36-a34f-77706b74e1bf",
+      "name": "Prepare Escalation Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://wahanoweb-1b14d7.app3.flaz.my.id/api/sendText",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chatId\": $json.chatId, \"text\": $json.text, \"session\": $json.session } }}",
+        "options": {}
+      },
+      "id": "d2a0532d-0199-4ea2-ad68-1f5452406912",
+      "name": "Send Escalation Reply (WAHA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        576,
+        64
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-reply",
+              "name": "text",
+              "type": "string",
+              "value": "=Maaf Kak, sistem kami sedang ada kendala teknis. Mohon tunggu sebentar, tim kami akan segera membantu ya 🙏"
+            },
+            {
+              "id": "0c790607-4779-4d87-96be-e4d3112773d4",
+              "name": "chatId",
+              "type": "string",
+              "value": "={{ $('Normalize Payload').item.json.body.payload.from }}"
+            },
+            {
+              "id": "8a4b7c7b-f73a-496c-9070-0103ff69e22a",
+              "name": "session",
+              "type": "string",
+              "value": "RAG_chatbot"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "302d00fb-df43-4dca-b237-4fffe606b31e",
+      "name": "Prepare Fallback Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://wahanoweb-1b14d7.app3.flaz.my.id/api/sendText",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"chatId\": $json.chatId, \"text\": $json.text, \"session\": $json.session } }}",
+        "options": {}
+      },
+      "id": "64a25994-7747-4405-8e3f-70a8f32b40bd",
+      "name": "Send Fallback Reply (WAHA)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        576,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-reply",
+              "name": "text",
+              "type": "string",
+              "value": "=⚠️ ERROR TEKNIS - Lumina Attire Bot\n\n👤 Customer: wa.me/{{ $('Normalize Payload').item.json.body.payload._data.key.remoteJidAlt || $('Normalize Payload').item.json.body.payload.from.split('@')[0] }}\n💬 Pesan: {{ $('Normalize Payload').item.json.text }}\n❌ Error: {{ $('Customer Service Agent').item.json.error?.message ?? JSON.stringify($('Customer Service Agent').item.json.error ?? 'Unknown error') }}\n\n👉 Mohon dicek & dibalas manual ya, Kak."
+            },
+            {
+              "id": "0c790607-4779-4d87-96be-e4d3112773d4",
+              "name": "chatId",
+              "type": "string",
+              "value": "={{ $('Normalize Payload').item.json.body.payload.from }}"
+            },
+            {
+              "id": "8a4b7c7b-f73a-496c-9070-0103ff69e22a",
+              "name": "session",
+              "type": "string",
+              "value": "RAG_chatbot"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "16afe165-28a9-4d48-833d-8bc2150c52eb",
+      "name": "Prepare Error Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "fcfa5e69-b492-4dcc-be51-687c8f60a73c",
+              "leftValue": "={{ $json.text }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "from-notempty-01",
+              "leftValue": "={{ $json.body.payload.from }}",
+              "operator": {
+                "operation": "notEmpty",
+                "singleValue": true,
+                "type": "string"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "not-from-me-01",
+              "leftValue": "={{ $json.body.payload.fromMe }}",
+              "operator": {
+                "operation": "false",
+                "singleValue": true,
+                "type": "boolean"
+              },
+              "rightValue": ""
+            }
+          ],
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          }
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -944,
+        256
+      ],
+      "id": "f7c6329b-e87f-49bd-ae1f-b9d9abfcc97e",
+      "name": "Valid Incoming Message?"
+    },
+    {
+      "parameters": {
+        "content": "## Lumina Attire — RAG Customer Service Bot\nWebhook (WAHA) → validasi pesan → AI Agent (Gemini 2.5 Flash + RAG SOP di Supabase) → routing:\n- **Normal** → balas customer\n- **ESCALATE** → balas customer + alert ke admin (Telegram)\n- **Agent error** → fallback ke customer + alert error teknis ke admin\n\n### Credential yang dibutuhkan\nGemini API (chat + embeddings), Supabase, WAHA (Header Auth), Telegram Bot\n\n### Catatan\nMemory bersifat in-memory (hilang saat n8n restart).",
+        "height": 300,
+        "width": 560
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1168,
+        496
+      ],
+      "typeVersion": 1,
+      "id": "ed53a8af-3965-46b0-9c52-d3e4ae447825",
+      "name": "Workflow Overview"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "esc-alert-text",
+              "name": "text",
+              "type": "string",
+              "value": "=🚨 ESKALASI - Lumina Attire Bot\n\n👤 Customer: wa.me/{{ $('Normalize Payload').item.json.body.payload._data.key.remoteJidAlt || $('Normalize Payload').item.json.body.payload.from.split('@')[0] }}\n💬 Pesan: {{ $('Normalize Payload').item.json.text }}\n📌 Alasan: {{ $('Customer Service Agent').item.json.output.split('||')[1]?.trim() || '-' }}\n📨 Balasan ke customer: {{ $json.error ? 'GAGAL terkirim' : 'Terkirim' }}\n\n👉 Mohon ditindaklanjuti manual ya, Kak."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d2e819b3-b573-4e40-93ad-67cbb7187cbf",
+      "name": "Prepare Escalation Alert",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        64
+      ]
+    }
+  ],
+  "pinData": {
+    "Instagram DM Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "lastjuly.app.n8n.cloud",
+            "user-agent": "WAHA/2026.7.2",
+            "content-length": "1344",
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "103.190.0.85",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "ID",
+            "cf-ray": "a25b3cd78b49fe8f-SIN",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "x-forwarded-for": "103.190.0.85, 172.68.164.164",
+            "x-forwarded-host": "lastjuly.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-10-7758bbbc9b-qmvxv",
+            "x-is-trusted": "yes",
+            "x-real-ip": "103.190.0.85",
+            "x-webhook-request-id": "eeov77mse8e21l",
+            "x-webhook-timestamp": "1785822134744"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": "evt_01kz5mpgerqnmx4qk77hdhm3g4",
+            "timestamp": 1785822134744,
+            "event": "message",
+            "session": "RAG_chatbot",
+            "metadata": {},
+            "me": {
+              "id": "6285178493102@c.us",
+              "pushName": "Rifki | Automation spesialist",
+              "lid": "254481761628209@lid",
+              "reachoutTimelock": {
+                "enforcementType": "RESTRICT_ALL_COMPANIONS",
+                "isActive": true,
+                "timeEnforcementEnds": 1785935097
+              }
+            },
+            "payload": {
+              "id": "false_238203265093850@lid_AC26DDF349517F84D47177C66105F2FC",
+              "timestamp": 1785822134,
+              "from": "238203265093850@lid",
+              "fromMe": false,
+              "source": "app",
+              "body": "kak, baju ku robek aku mau return",
+              "hasMedia": false,
+              "media": null,
+              "ack": 2,
+              "ackName": "DEVICE",
+              "location": null,
+              "vCards": null,
+              "replyTo": null,
+              "_data": {
+                "key": {
+                  "remoteJid": "238203265093850@lid",
+                  "remoteJidAlt": "62881024933713@s.whatsapp.net",
+                  "fromMe": false,
+                  "id": "AC26DDF349517F84D47177C66105F2FC",
+                  "participant": "",
+                  "addressingMode": "lid"
+                },
+                "messageTimestamp": 1785822134,
+                "pushName": "rifkimaulanaaji",
+                "broadcast": false,
+                "message": {
+                  "conversation": "kak, baju ku robek aku mau return",
+                  "messageContextInfo": {
+                    "deviceListMetadata": {
+                      "recipientKeyHash": "rXrcQh71O+zBWg==",
+                      "recipientTimestamp": "1785729468"
+                    },
+                    "deviceListMetadataVersion": 2,
+                    "messageSecret": "nrIAsSGjAkcJAvwidbCxke2343jlyjXXYW7BnbpGs54="
+                  }
+                },
+                "status": 3
+              }
+            },
+            "engine": "NOWEB",
+            "environment": {
+              "version": "2026.7.2",
+              "engine": "NOWEB",
+              "tier": "PLUS",
+              "browser": null,
+              "platform": "linux/x64",
+              "worker": {
+                "id": null
+              }
+            }
+          },
+          "webhookUrl": "https://lastjuly.app.n8n.cloud/webhook/instagram_dm",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Valid Incoming Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Escalation?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Escalation Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Normal Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_sop": {
+      "ai_tool": [
+        [
+          {
+            "node": "Customer Service Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receive Message (WAHA Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid Incoming Message?": {
+      "main": [
+        [
+          {
+            "node": "Set System Prompt & Chat ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set System Prompt & Chat ID": {
+      "main": [
+        [
+          {
+            "node": "Customer Service Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Service Agent": {
+      "main": [
+        [
+          {
+            "node": "Is Escalation?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Fallback Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini 2.5 Flash": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Customer Service Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory (per customer)": {
+      "ai_memory": [
+        [
+          {
+            "node": "Customer Service Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "search_sop",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Normal Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Normal Reply (WAHA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Escalation Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Escalation Reply (WAHA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Fallback Reply": {
+      "main": [
+        [
+          {
+            "node": "Send Fallback Reply (WAHA)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Fallback Reply (WAHA)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Error Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Error Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Alert (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Escalation Reply (WAHA)": {
+      "main": [
+        [
+          {
+            "node": "Prepare Escalation Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Escalation Alert": {
+      "main": [
+        [
+          {
+            "node": "Send Admin Alert (Telegram)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "a17465c5-5f3a-4d10-a908-358f767b26e7",
+  "meta": {
+    "aiBuilderAssisted": true,
+    "builderVariant": "mcp",
+    "instanceId": "d7ab9faefe31aebb14c4ee1d409dd73742fcc70d80472074b1eebb0c815d1d18"
+  },
+  "nodeGroups": [],
+  "id": "JeKjLdhLv9tgntDH",
+  "tags": []
+}
